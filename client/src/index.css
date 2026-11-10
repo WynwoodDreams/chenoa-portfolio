@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 @custom-variant dark (&:is(.dark *));
 
@@ -10,11 +9,14 @@ Enhanced for AI Student Portfolio - Chenoa Nussberger
 - Monochromatic palette: pure black, off-white, cyan accent
 - Mathematical grid systems with asymmetric layouts
 - Hairline borders and precise spacing
-- Typography: Space Grotesk (display), IBM Plex Mono (body)
+- Typography: Space Grotesk (display + prose), IBM Plex Mono (labels + metadata)
 - Framer Motion animations for scroll reveals
 */
 
 @theme inline {
+  --font-sans: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   --radius-sm: 0;
   --radius-md: 0;
   --radius-lg: 0;
@@ -55,9 +57,9 @@ Enhanced for AI Student Portfolio - Chenoa Nussberger
 
 .dark {
   /* Swiss Minimalism: Pure black background, off-white text, cyan accent */
-  --background: oklch(0.06 0 0); /* Deeper black for more contrast */
+  --background: oklch(0.09 0.004 240); /* Near-black with a faint cool cast */
   --foreground: oklch(0.98 0 0); /* Off-white #FAFAFA */
-  --card: oklch(0.10 0 0);
+  --card: oklch(0.125 0.005 240);
   --card-foreground: oklch(0.98 0 0);
   --popover: oklch(0.10 0 0);
   --popover-foreground: oklch(0.98 0 0);
@@ -66,12 +68,12 @@ Enhanced for AI Student Portfolio - Chenoa Nussberger
   --secondary: oklch(0.15 0 0);
   --secondary-foreground: oklch(0.98 0 0);
   --muted: oklch(0.15 0 0);
-  --muted-foreground: oklch(0.55 0 0);
+  --muted-foreground: oklch(0.72 0.008 240); /* ≥ 7:1 on background */
   --accent: oklch(0.78 0.18 195); /* Cyan accent */
   --accent-foreground: oklch(0.06 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.20 0 0); /* Subtle borders */
+  --border: oklch(0.25 0.006 240); /* Subtle borders */
   --input: oklch(0.20 0 0);
   --ring: oklch(0.78 0.18 195);
   --chart-1: oklch(0.78 0.18 195);
@@ -95,22 +97,28 @@ Enhanced for AI Student Portfolio - Chenoa Nussberger
 
   html {
     scroll-behavior: smooth;
+    color-scheme: dark;
+  }
+
+  /* Anchor targets clear the fixed nav */
+  section[id] {
+    scroll-margin-top: 4rem;
   }
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 14px;
+    font-family: var(--font-sans);
+    font-size: 16px;
     line-height: 1.6;
-    letter-spacing: 0.01em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: var(--font-display);
     font-weight: 700;
     letter-spacing: -0.02em;
+    text-wrap: balance;
   }
 
   button:not(:disabled),
@@ -123,6 +131,25 @@ Enhanced for AI Student Portfolio - Chenoa Nussberger
   input[type="checkbox"]:not(:disabled),
   input[type="radio"]:not(:disabled) {
     @apply cursor-pointer;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 
   /* Selection styling */
@@ -159,6 +186,194 @@ Enhanced for AI Student Portfolio - Chenoa Nussberger
       padding-right: 2rem;
       max-width: 1280px;
     }
+  }
+
+  .section {
+    padding-top: 5rem;
+    padding-bottom: 5rem;
+  }
+
+  @media (min-width: 768px) {
+    .section {
+      padding-top: 7.5rem;
+      padding-bottom: 7.5rem;
+    }
+  }
+
+  /* Mono label that introduces a section or block */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--primary);
+  }
+
+  .subheading {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+    padding-bottom: 0.875rem;
+    margin-bottom: 1.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0.75rem 1.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border: 1px solid transparent;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease,
+      box-shadow 0.2s ease, transform 0.1s ease;
+  }
+
+  .btn:active {
+    transform: translateY(1px);
+  }
+
+  .btn-primary {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  .btn-primary:hover {
+    box-shadow: 0 0 0 1px var(--primary), 0 8px 28px oklch(0.78 0.18 195 / 0.3);
+  }
+
+  .btn-outline {
+    border-color: var(--border);
+    background: oklch(0.09 0.004 240 / 0.6);
+    color: var(--foreground);
+  }
+
+  .btn-outline:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  /* Small labelled link used in card footers */
+  .card-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+    transition: color 0.15s ease;
+  }
+
+  .card-link:hover {
+    color: var(--primary);
+  }
+
+  .icon-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    color: var(--muted-foreground);
+    transition: color 0.15s ease;
+  }
+
+  .icon-link:hover {
+    color: var(--primary);
+  }
+
+  .skip-link {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 100;
+    padding: 0.625rem 1rem;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    transform: translateY(-200%);
+  }
+
+  .skip-link:focus {
+    transform: translateY(0);
+  }
+
+  /* Registration-mark corners for framed panels */
+  .corner {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-color: var(--primary);
+    border-style: solid;
+    border-width: 0;
+    pointer-events: none;
+  }
+
+  .corner-tl {
+    top: -1px;
+    left: -1px;
+    border-top-width: 2px;
+    border-left-width: 2px;
+  }
+
+  .corner-br {
+    bottom: -1px;
+    right: -1px;
+    border-bottom-width: 2px;
+    border-right-width: 2px;
+  }
+
+  /* Hero scroll cue: a line with a travelling highlight */
+  .scroll-cue {
+    position: relative;
+    width: 1px;
+    height: 3rem;
+    background: var(--border);
+    overflow: hidden;
+  }
+
+  .scroll-cue::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--primary);
+    animation: scroll-cue 2.2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  }
+
+  @keyframes scroll-cue {
+    0% { transform: translateY(-100%); }
+    60%, 100% { transform: translateY(100%); }
+  }
+
+  .hero-grid-mask {
+    opacity: 0.5;
+    mask-image: radial-gradient(ellipse 70% 60% at 70% 40%, black, transparent 75%);
+  }
+
+  .contact-mask {
+    opacity: 0.6;
+    mask-image: linear-gradient(to left, black, transparent 60%);
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 
   /* Swiss design utility: hairline borders */
@@ -245,15 +460,15 @@ Enhanced for AI Student Portfolio - Chenoa Nussberger
   /* Grid pattern background */
   .bg-grid-pattern {
     background-image:
-      linear-gradient(oklch(0.15 0 0) 1px, transparent 1px),
-      linear-gradient(90deg, oklch(0.15 0 0) 1px, transparent 1px);
-    background-size: 40px 40px;
+      linear-gradient(oklch(0.2 0.006 240) 1px, transparent 1px),
+      linear-gradient(90deg, oklch(0.2 0.006 240) 1px, transparent 1px);
+    background-size: 48px 48px;
   }
 
   /* Dot pattern background */
   .bg-dot-pattern {
-    background-image: radial-gradient(oklch(0.20 0 0) 1px, transparent 1px);
-    background-size: 20px 20px;
+    background-image: radial-gradient(oklch(0.3 0.006 240) 1px, transparent 1px);
+    background-size: 24px 24px;
   }
 
   /* Noise texture overlay */

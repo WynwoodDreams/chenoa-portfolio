@@ -1,781 +1,690 @@
 /*
 Design Philosophy: Swiss Minimalism with Technical Precision
-Enhanced for AI Student Portfolio - Chenoa Nussberger
-- Interactive neural network visualization
-- Scroll-triggered animations with Framer Motion
-- Research & publications showcase
-- Dynamic skill visualization
-- Educational journey timeline
+- Numbered sections on a strict grid, hairline rules, one accent colour
+- Display type in Space Grotesk, labels and metadata in IBM Plex Mono
+- Motion is supportive: scroll reveals, filter transitions, a live hero canvas
+  (all of it stands down for prefers-reduced-motion)
 */
 
-import { motion, useScroll, useTransform } from 'framer-motion';
-import { useRef, useState } from 'react';
-import NeuralNetworkCanvas from '@/components/NeuralNetworkCanvas';
+import { AnimatePresence, MotionConfig, motion, useScroll, useTransform } from 'framer-motion';
+import { useRef, useState, type ReactNode } from 'react';
 import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpRight,
+  Check,
+  Copy,
   Github,
   Linkedin,
   Mail,
-  ExternalLink,
-  BookOpen,
-  Award,
-  ChevronRight,
-  Terminal,
-  Brain,
-  Database,
-  Code2,
-  Cpu,
-  LineChart
 } from 'lucide-react';
+import { toast } from 'sonner';
+import NeuralNetworkCanvas from '@/components/NeuralNetworkCanvas';
+import SiteNav, { type NavItem } from '@/components/SiteNav';
+import {
+  categories,
+  profile,
+  projects,
+  research,
+  skills,
+  timeline,
+  type Project,
+} from '@/data/portfolio';
 
-// Animation variants
+const EASE = [0.22, 1, 0.36, 1] as const;
+
 const fadeInUp = {
-  hidden: { opacity: 0, y: 40 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.25, 0.1, 0.25, 1] } }
+  hidden: { opacity: 0, y: 28 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: EASE } },
 };
 
-const staggerContainer = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1, delayChildren: 0.1 }
-  }
+const stagger = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.09, delayChildren: 0.05 } },
 };
 
-const scaleIn = {
-  hidden: { opacity: 0, scale: 0.9 },
-  visible: { opacity: 1, scale: 1, transition: { duration: 0.5 } }
-};
+const NAV_ITEMS: NavItem[] = [
+  { id: 'work', label: 'Work' },
+  { id: 'research', label: 'Research' },
+  { id: 'about', label: 'About' },
+  { id: 'contact', label: 'Contact' },
+];
+
+function Reveal({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <motion.div
+      className={className}
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, margin: '-80px' }}
+      variants={fadeInUp}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+function SectionHeader({
+  index,
+  eyebrow,
+  title,
+  aside,
+}: {
+  index: string;
+  eyebrow: string;
+  title: ReactNode;
+  aside?: ReactNode;
+}) {
+  return (
+    <Reveal className="mb-10 md:mb-14 flex flex-col gap-4 border-b border-border pb-6 md:flex-row md:items-end md:justify-between">
+      <div>
+        <p className="eyebrow mb-3">
+          <span className="text-muted-foreground">{index}</span>
+          <span className="mx-3 inline-block h-px w-8 bg-primary align-middle" />
+          {eyebrow}
+        </p>
+        <h2 className="text-4xl md:text-5xl leading-[1.05]">{title}</h2>
+      </div>
+      {aside}
+    </Reveal>
+  );
+}
+
+/** Decorative attention-map motif for the featured project card. */
+function AttentionMatrix() {
+  const size = 9;
+  return (
+    <div
+      aria-hidden="true"
+      className="grid gap-1"
+      style={{ gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` }}
+    >
+      {Array.from({ length: size * size }, (_, i) => {
+        const row = Math.floor(i / size);
+        const col = i % size;
+        const diagonal = Math.max(0, 1 - Math.abs(row - col) / 3);
+        const scatter = ((row * 7 + col * 13) % 5) / 22;
+        return (
+          <span
+            key={i}
+            className="aspect-square bg-primary transition-opacity duration-500"
+            style={{ opacity: Math.min(1, 0.06 + diagonal * 0.7 + scatter) }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function ProjectCard({ project }: { project: Project }) {
+  return (
+    <motion.article
+      layout
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.97 }}
+      viewport={{ once: true, margin: '-60px' }}
+      transition={{ duration: 0.45, ease: EASE }}
+      className={`group relative ${project.featured ? 'md:col-span-2' : ''}`}
+    >
+      <div className="relative flex h-full flex-col border border-border bg-card transition-[border-color,transform] duration-300 group-hover:-translate-y-1 group-hover:border-primary/70 group-focus-within:border-primary/70">
+        <span className="absolute left-0 top-0 h-px w-0 bg-primary transition-all duration-500 group-hover:w-full" />
+
+        <div className={`flex flex-1 gap-8 p-6 md:p-7 ${project.featured ? 'md:items-center' : ''}`}>
+          <div className="flex-1">
+            <div className="mb-6 flex items-center justify-between gap-4">
+              <span className="outline-text font-display text-5xl font-bold leading-none text-primary/60 transition-colors duration-300 group-hover:text-primary">
+                {project.id}
+              </span>
+              <div className="flex flex-wrap justify-end gap-2">
+                {project.featured && (
+                  <span className="bg-primary px-2.5 py-1 font-mono text-[11px] font-medium uppercase tracking-wider text-primary-foreground">
+                    Featured
+                  </span>
+                )}
+                <span className="bg-primary/10 px-2.5 py-1 font-mono text-[11px] uppercase tracking-wider text-primary">
+                  {project.category}
+                </span>
+              </div>
+            </div>
+
+            <h3 className={`mb-3 ${project.featured ? 'text-2xl md:text-3xl' : 'text-xl'}`}>
+              {project.title}
+            </h3>
+            <p className="max-w-prose text-[15px] leading-relaxed text-muted-foreground">
+              {project.description}
+            </p>
+
+            <ul className="mt-5 flex flex-wrap gap-2" aria-label="Tech stack">
+              {project.tech.map((t) => (
+                <li
+                  key={t}
+                  className="border border-border px-2 py-1 font-mono text-xs text-muted-foreground"
+                >
+                  {t}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {project.featured && (
+            <div className="hidden w-44 shrink-0 opacity-70 transition-opacity duration-300 group-hover:opacity-100 sm:block lg:w-52">
+              <AttentionMatrix />
+            </div>
+          )}
+        </div>
+
+        {(project.github || project.demo) && (
+          <div className="flex items-center gap-6 border-t border-border px-6 py-3 md:px-7">
+            {project.github && (
+              <a
+                href={project.github}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`${project.title} — source code on GitHub`}
+                className="card-link"
+              >
+                <Github className="h-4 w-4" aria-hidden="true" />
+                Code
+              </a>
+            )}
+            {project.demo && (
+              <a
+                href={project.demo}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`${project.title} — live demo`}
+                className="card-link"
+              >
+                Live demo
+                <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+              </a>
+            )}
+          </div>
+        )}
+      </div>
+    </motion.article>
+  );
+}
 
 export default function Home() {
-  const [activeFilter, setActiveFilter] = useState<string>('all');
-  const heroRef = useRef<HTMLDivElement>(null);
+  const [activeFilter, setActiveFilter] = useState('all');
+  const [copied, setCopied] = useState(false);
+
+  const heroRef = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({
     target: heroRef,
-    offset: ["start start", "end start"]
+    offset: ['start start', 'end start'],
   });
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.9], [1, 0]);
+  const heroY = useTransform(scrollYProgress, [0, 1], [0, 80]);
 
-  const heroOpacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
-  const heroScale = useTransform(scrollYProgress, [0, 1], [1, 0.95]);
+  const filteredProjects =
+    activeFilter === 'all' ? projects : projects.filter((p) => p.category === activeFilter);
+  const countFor = (cat: string) =>
+    cat === 'all' ? projects.length : projects.filter((p) => p.category === cat).length;
 
-  const projects = [
-    {
-      id: "01",
-      title: "Transformer Attention Visualizer",
-      category: "Research",
-      tech: ["PyTorch", "React", "D3.js", "FastAPI"],
-      description: "Interactive tool for visualizing self-attention patterns in transformer models. Helps researchers understand how models process sequential data.",
-      github: "https://github.com/chenoa",
-      demo: "https://attention-viz.demo",
-      featured: true,
-    },
-    {
-      id: "02",
-      title: "Multi-Modal RAG System",
-      category: "App",
-      tech: ["LangChain", "OpenAI", "Pinecone", "Next.js"],
-      description: "Retrieval-augmented generation system that processes text, images, and PDFs for context-aware question answering.",
-      github: "https://github.com/chenoa",
-    },
-    {
-      id: "03",
-      title: "Neural Style Transfer Studio",
-      category: "Website",
-      tech: ["TensorFlow.js", "WebGL", "TypeScript"],
-      description: "Real-time artistic style transfer running entirely in the browser using optimized neural networks.",
-      github: "https://github.com/chenoa",
-      demo: "https://style-studio.demo",
-    },
-    {
-      id: "04",
-      title: "Conversational AI with Memory",
-      category: "Chatbot",
-      tech: ["Claude API", "Redis", "Node.js", "React"],
-      description: "Context-aware chatbot with long-term memory, personality persistence, and multi-turn reasoning capabilities.",
-      github: "https://github.com/chenoa",
-    },
-    {
-      id: "05",
-      title: "Federated Learning Framework",
-      category: "Research",
-      tech: ["Python", "gRPC", "Docker", "PyTorch"],
-      description: "Privacy-preserving ML framework enabling collaborative model training across distributed datasets without sharing raw data.",
-      github: "https://github.com/chenoa",
-    },
-    {
-      id: "06",
-      title: "AI Code Review Assistant",
-      category: "Tool",
-      tech: ["GPT-4", "GitHub Actions", "TypeScript"],
-      description: "Automated code review bot that provides intelligent suggestions, detects potential bugs, and enforces best practices.",
-      github: "https://github.com/chenoa",
-    },
-  ];
+  const copyEmail = async () => {
+    try {
+      await navigator.clipboard.writeText(profile.email);
+      setCopied(true);
+      toast.success('Email copied to clipboard');
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error('Could not copy — the address is ' + profile.email);
+    }
+  };
 
-  const skills = [
-    { name: "Machine Learning", level: 92, icon: Brain },
-    { name: "Deep Learning", level: 88, icon: Cpu },
-    { name: "Natural Language Processing", level: 85, icon: Terminal },
-    { name: "Computer Vision", level: 78, icon: LineChart },
-    { name: "Data Engineering", level: 82, icon: Database },
-    { name: "Full-Stack Development", level: 90, icon: Code2 },
-  ];
-
-  const research = [
-    {
-      title: "Efficient Fine-Tuning of Large Language Models with Adaptive LoRA",
-      venue: "NeurIPS 2025 Workshop",
-      year: "2025",
-      type: "Workshop Paper",
-    },
-    {
-      title: "Attention Patterns in Multilingual Models: A Comparative Study",
-      venue: "ACL Student Research Workshop",
-      year: "2025",
-      type: "Short Paper",
-    },
-    {
-      title: "Privacy-Preserving Federated Learning for Healthcare Applications",
-      venue: "arXiv Preprint",
-      year: "2024",
-      type: "Preprint",
-    },
-  ];
-
-  const timeline = [
-    {
-      year: "2024 - Present",
-      title: "M.S. Artificial Intelligence",
-      org: "Stanford University",
-      description: "Focus on NLP, deep learning architectures, and AI safety",
-    },
-    {
-      year: "2023 - 2024",
-      title: "AI Research Intern",
-      org: "Google DeepMind",
-      description: "Worked on efficient transformer architectures and model compression",
-    },
-    {
-      year: "2020 - 2024",
-      title: "B.S. Computer Science",
-      org: "MIT",
-      description: "Graduated with honors, concentration in machine learning",
-    },
-  ];
-
-  const categories = ['all', 'Research', 'App', 'Website', 'Chatbot', 'Tool'];
-  const filteredProjects = activeFilter === 'all'
-    ? projects
-    : projects.filter(p => p.category === activeFilter);
+  const [current, previous] = timeline;
 
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
-      {/* Navigation - Fixed top with hairline border */}
-      <motion.nav
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
-        className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md hairline-border border-b border-border"
-      >
-        <div className="container">
-          <div className="flex items-center justify-between h-16">
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              className="font-bold text-xl tracking-tight cursor-pointer"
-              style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-            >
-              <span className="text-primary">C</span>N
-            </motion.div>
-            <div className="flex items-center gap-8">
-              {['work', 'research', 'about', 'contact'].map((item) => (
-                <motion.a
-                  key={item}
-                  href={`#${item}`}
-                  whileHover={{ y: -2 }}
-                  className="text-sm hover:text-primary transition-colors duration-150 relative group"
-                >
-                  {item.toUpperCase()}
-                  <span className="absolute -bottom-1 left-0 w-0 h-px bg-primary transition-all duration-300 group-hover:w-full" />
-                </motion.a>
-              ))}
-            </div>
-          </div>
-        </div>
-      </motion.nav>
+    <MotionConfig reducedMotion="user">
+      <div className="min-h-screen bg-background text-foreground overflow-x-clip">
+        <a href="#work" className="skip-link">
+          Skip to content
+        </a>
 
-      {/* Hero Section - Neural Network Background */}
-      <motion.section
-        ref={heroRef}
-        style={{ opacity: heroOpacity, scale: heroScale }}
-        className="relative min-h-screen flex items-center overflow-hidden"
-      >
-        <NeuralNetworkCanvas />
+        <SiteNav items={NAV_ITEMS} topId="top" />
 
-        <div className="container relative z-10">
-          <div className="grid grid-cols-12 gap-8 items-center">
-            <motion.div
-              className="col-span-12 lg:col-span-8"
-              initial="hidden"
-              animate="visible"
-              variants={staggerContainer}
-            >
-              <motion.div variants={fadeInUp} className="mb-4">
-                <span className="text-primary text-sm tracking-[0.3em] font-mono">
-                  HELLO, I'M
-                </span>
-              </motion.div>
-
-              <motion.h1
-                variants={fadeInUp}
-                className="text-5xl md:text-7xl lg:text-8xl font-bold mb-6 leading-[0.9]"
-                style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-              >
-                Chenoa
-                <br />
-                <span className="text-primary">Nussberger</span>
-              </motion.h1>
-
-              <motion.div
-                variants={fadeInUp}
-                className="hairline-border border-l-2 border-primary pl-6 mb-8 max-w-xl"
-              >
-                <p className="text-xl text-muted-foreground mb-3 font-mono">
-                  AI RESEARCHER & ENGINEER
-                </p>
-                <p className="text-base text-muted-foreground leading-relaxed">
-                  Building the next generation of intelligent systems. Focused on
-                  <span className="text-primary"> large language models</span>,
-                  <span className="text-primary"> neural architectures</span>, and
-                  <span className="text-primary"> human-AI interaction</span>.
-                  Currently pursuing my M.S. in AI at Stanford.
-                </p>
-              </motion.div>
-
-              <motion.div variants={fadeInUp} className="flex items-center gap-4">
-                <motion.a
-                  href="#work"
-                  whileHover={{ scale: 1.02, x: 4 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 text-sm font-medium transition-all duration-150"
-                >
-                  VIEW MY WORK
-                  <ChevronRight className="w-4 h-4" />
-                </motion.a>
-                <motion.a
-                  href="#contact"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="inline-flex items-center gap-2 border border-border px-6 py-3 text-sm font-medium hover:border-primary transition-all duration-150"
-                >
-                  GET IN TOUCH
-                </motion.a>
-              </motion.div>
-            </motion.div>
-
-            <motion.div
-              className="col-span-12 lg:col-span-4 hidden lg:flex items-center justify-end"
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.4 }}
-            >
-              <div className="relative">
-                <div
-                  className="text-[180px] font-bold outline-text opacity-10 select-none"
-                  style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-                >
-                  AI
-                </div>
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 border border-primary/30 rounded-full"
-                />
-                <motion.div
-                  animate={{ rotate: -360 }}
-                  transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 border border-primary/20 rounded-full"
-                />
-              </div>
-            </motion.div>
-          </div>
-        </div>
-
-        {/* Scroll indicator */}
-        <motion.div
-          className="absolute bottom-8 left-1/2 -translate-x-1/2"
-          animate={{ y: [0, 10, 0] }}
-          transition={{ duration: 2, repeat: Infinity }}
-        >
-          <div className="w-px h-16 bg-gradient-to-b from-transparent via-primary to-transparent" />
-        </motion.div>
-      </motion.section>
-
-      {/* Projects Grid */}
-      <section id="work" className="py-24 relative">
-        <div className="container">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-            variants={staggerContainer}
+        <main>
+          {/* ───────────── Hero ───────────── */}
+          <section
+            id="top"
+            ref={heroRef}
+            className="relative flex min-h-svh items-center overflow-hidden pt-24 pb-28"
           >
-            <motion.div
-              variants={fadeInUp}
-              className="flex flex-col md:flex-row md:items-end justify-between mb-12 hairline-border border-b border-border pb-6"
-            >
-              <div>
-                <span className="text-primary text-sm tracking-[0.2em] font-mono mb-2 block">
-                  PORTFOLIO
-                </span>
-                <h2
-                  className="text-4xl md:text-5xl font-bold"
-                  style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-                >
-                  Selected Work
-                </h2>
-              </div>
-              <p className="text-sm text-muted-foreground mt-4 md:mt-0">
-                {filteredProjects.length} PROJECTS
-              </p>
-            </motion.div>
+            <div aria-hidden="true" className="absolute inset-0 bg-grid-pattern hero-grid-mask" />
+            <NeuralNetworkCanvas />
+            {/* Keep copy legible over the canvas and blend into the next section */}
+            <div
+              aria-hidden="true"
+              className="absolute inset-0 bg-gradient-to-r from-background via-background/75 to-background/10 lg:via-background/60 lg:to-transparent"
+            />
+            <div
+              aria-hidden="true"
+              className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background to-transparent"
+            />
 
-            {/* Filter tabs */}
-            <motion.div variants={fadeInUp} className="flex flex-wrap gap-2 mb-12">
-              {categories.map((cat) => (
-                <motion.button
-                  key={cat}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setActiveFilter(cat)}
-                  className={`px-4 py-2 text-xs tracking-wider transition-all duration-150 ${
-                    activeFilter === cat
-                      ? 'bg-primary text-primary-foreground'
-                      : 'border border-border hover:border-primary'
-                  }`}
-                >
-                  {cat.toUpperCase()}
-                </motion.button>
-              ))}
-            </motion.div>
-
-            <motion.div
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-              variants={staggerContainer}
-            >
-              {filteredProjects.map((project, index) => (
+            <motion.div style={{ opacity: heroOpacity, y: heroY }} className="container relative z-10">
+              <div className="grid grid-cols-12 items-center gap-y-12 lg:gap-x-12">
                 <motion.div
-                  key={project.id}
-                  variants={scaleIn}
-                  whileHover={{ y: -8 }}
-                  className={`group relative ${project.featured ? 'md:col-span-2' : ''}`}
+                  className="col-span-12 lg:col-span-7"
+                  initial="hidden"
+                  animate="visible"
+                  variants={stagger}
                 >
-                  <div className="hairline-border border border-border bg-card hover:border-primary transition-all duration-300 h-full">
-                    {/* Project header with number */}
-                    <div className="p-6 pb-0">
-                      <div className="flex items-start justify-between mb-4">
-                        <span
-                          className="text-6xl font-bold outline-text text-primary/50"
-                          style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-                        >
-                          {project.id}
-                        </span>
-                        <span className="text-xs text-primary tracking-wider bg-primary/10 px-3 py-1">
-                          {project.category.toUpperCase()}
-                        </span>
-                      </div>
+                  <motion.p variants={fadeInUp} className="eyebrow mb-5 flex items-center gap-3">
+                    <span className="h-px w-8 bg-primary" />
+                    Hello, I'm
+                  </motion.p>
 
-                      <h3
-                        className="text-xl font-bold mb-3 group-hover:text-primary transition-colors duration-150"
-                        style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-                      >
-                        {project.title}
-                      </h3>
-
-                      <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-                        {project.description}
-                      </p>
-                    </div>
-
-                    {/* Tech stack */}
-                    <div className="px-6 pb-4">
-                      <div className="flex flex-wrap gap-2">
-                        {project.tech.map((t) => (
-                          <span
-                            key={t}
-                            className="text-xs text-muted-foreground border border-border px-2 py-1 font-mono"
-                          >
-                            {t}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Links */}
-                    <div className="hairline-border border-t border-border p-4 flex items-center gap-4">
-                      {project.github && (
-                        <motion.a
-                          href={project.github}
-                          whileHover={{ scale: 1.1 }}
-                          className="text-muted-foreground hover:text-primary transition-colors"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <Github className="w-5 h-5" />
-                        </motion.a>
-                      )}
-                      {project.demo && (
-                        <motion.a
-                          href={project.demo}
-                          whileHover={{ scale: 1.1 }}
-                          className="text-muted-foreground hover:text-primary transition-colors"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <ExternalLink className="w-5 h-5" />
-                        </motion.a>
-                      )}
-                      <motion.span
-                        whileHover={{ x: 4 }}
-                        className="ml-auto text-xs text-muted-foreground group-hover:text-primary transition-colors flex items-center gap-1 cursor-pointer"
-                      >
-                        VIEW DETAILS
-                        <ChevronRight className="w-4 h-4" />
-                      </motion.span>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </motion.div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Research Section */}
-      <section id="research" className="py-24 bg-card">
-        <div className="container">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-            variants={staggerContainer}
-          >
-            <motion.div variants={fadeInUp} className="mb-12">
-              <span className="text-primary text-sm tracking-[0.2em] font-mono mb-2 block">
-                PUBLICATIONS
-              </span>
-              <h2
-                className="text-4xl md:text-5xl font-bold"
-                style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-              >
-                Research
-              </h2>
-            </motion.div>
-
-            <div className="space-y-6">
-              {research.map((paper, index) => (
-                <motion.div
-                  key={index}
-                  variants={fadeInUp}
-                  whileHover={{ x: 8 }}
-                  className="hairline-border border border-border p-6 bg-background hover:border-primary transition-all duration-150 cursor-pointer group"
-                >
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <BookOpen className="w-4 h-4 text-primary" />
-                        <span className="text-xs text-muted-foreground tracking-wider">
-                          {paper.type.toUpperCase()}
-                        </span>
-                      </div>
-                      <h3
-                        className="text-lg font-bold group-hover:text-primary transition-colors"
-                        style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-                      >
-                        {paper.title}
-                      </h3>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {paper.venue}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className="text-2xl font-bold text-primary/50 font-mono">
-                        {paper.year}
-                      </span>
-                      <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* About Section with Skills & Timeline */}
-      <section id="about" className="py-24">
-        <div className="container">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-            variants={staggerContainer}
-          >
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
-              {/* Left column - Bio & Skills */}
-              <div className="lg:col-span-7">
-                <motion.div variants={fadeInUp}>
-                  <span className="text-primary text-sm tracking-[0.2em] font-mono mb-2 block">
-                    ABOUT
-                  </span>
-                  <h2
-                    className="text-4xl md:text-5xl font-bold mb-8"
-                    style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+                  <motion.h1
+                    variants={fadeInUp}
+                    className="mb-8 text-[clamp(2.75rem,11vw,6.5rem)] leading-[0.92] tracking-[-0.04em]"
                   >
+                    {profile.firstName}
+                    <br />
+                    <span className="text-primary">{profile.lastName}</span>
+                  </motion.h1>
+
+                  <motion.div variants={fadeInUp} className="mb-10 max-w-xl border-l-2 border-primary pl-6">
+                    <p className="mb-3 font-mono text-sm uppercase tracking-[0.18em] text-foreground">
+                      {profile.role}
+                    </p>
+                    <p className="text-lg leading-relaxed text-muted-foreground">
+                      Building the next generation of intelligent systems. Focused on{' '}
+                      <span className="text-foreground">large language models</span>,{' '}
+                      <span className="text-foreground">neural architectures</span>, and{' '}
+                      <span className="text-foreground">human-AI interaction</span>. Currently
+                      pursuing my M.S. in AI at Stanford.
+                    </p>
+                  </motion.div>
+
+                  <motion.div variants={fadeInUp} className="flex flex-wrap items-center gap-4">
+                    <a href="#work" className="btn btn-primary group">
+                      View my work
+                      <ArrowDown className="h-4 w-4 transition-transform duration-200 group-hover:translate-y-0.5" />
+                    </a>
+                    <a href="#contact" className="btn btn-outline">
+                      Get in touch
+                    </a>
+                  </motion.div>
+                </motion.div>
+
+                {/* At-a-glance panel */}
+                <motion.aside
+                  aria-label="At a glance"
+                  className="col-span-12 sm:col-span-9 md:col-span-7 lg:col-span-5"
+                  initial={{ opacity: 0, y: 24 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.7, delay: 0.45, ease: EASE }}
+                >
+                  <div className="relative border border-border bg-card/70 backdrop-blur-md">
+                    <span className="corner corner-tl" />
+                    <span className="corner corner-br" />
+
+                    <div className="flex items-center justify-between border-b border-border px-5 py-3">
+                      <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                        At a glance
+                      </span>
+                      <span className="relative flex h-2 w-2" aria-hidden="true">
+                        <span className="absolute inline-flex h-full w-full animate-ping bg-primary opacity-60 motion-reduce:hidden" />
+                        <span className="relative inline-flex h-2 w-2 bg-primary" />
+                      </span>
+                    </div>
+
+                    <dl className="divide-y divide-border">
+                      {[
+                        { term: 'Now', main: current.title, sub: current.org },
+                        { term: 'Before', main: previous.title, sub: previous.org },
+                        { term: 'Focus', main: profile.focus.join(' · ') },
+                      ].map((row) => (
+                        <div key={row.term} className="grid grid-cols-[4.5rem_1fr] gap-4 px-5 py-4">
+                          <dt className="pt-0.5 font-mono text-[11px] uppercase tracking-[0.2em] text-primary">
+                            {row.term}
+                          </dt>
+                          <dd className="text-[15px] leading-snug">
+                            {row.main}
+                            {row.sub && (
+                              <span className="mt-0.5 block text-sm text-muted-foreground">{row.sub}</span>
+                            )}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+
+                    <div className="grid grid-cols-2 divide-x divide-border border-t border-border">
+                      {[
+                        { value: projects.length, label: 'Projects', href: '#work' },
+                        { value: research.length, label: 'Publications', href: '#research' },
+                      ].map((stat) => (
+                        <a
+                          key={stat.label}
+                          href={stat.href}
+                          className="group flex items-baseline gap-3 px-5 py-4 transition-colors hover:bg-primary/5"
+                        >
+                          <span className="font-display text-3xl font-bold tabular-nums transition-colors group-hover:text-primary">
+                            {String(stat.value).padStart(2, '0')}
+                          </span>
+                          <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                            {stat.label}
+                          </span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                </motion.aside>
+              </div>
+            </motion.div>
+
+            <a
+              href="#work"
+              aria-label="Scroll to work"
+              className="absolute bottom-6 left-1/2 z-10 hidden -translate-x-1/2 flex-col items-center gap-3 font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground transition-colors hover:text-primary md:flex"
+            >
+              Scroll
+              <span className="scroll-cue" aria-hidden="true" />
+            </a>
+          </section>
+
+          {/* ───────────── Work ───────────── */}
+          <section id="work" className="section">
+            <div className="container">
+              <SectionHeader
+                index="01"
+                eyebrow="Portfolio"
+                title="Selected Work"
+                aside={
+                  <p className="font-mono text-xs uppercase tracking-[0.15em] text-muted-foreground" aria-live="polite">
+                    <span className="text-foreground">{String(filteredProjects.length).padStart(2, '0')}</span>
+                    {' / '}
+                    {String(projects.length).padStart(2, '0')} projects
+                  </p>
+                }
+              />
+
+              <Reveal className="mb-10 -mx-4 overflow-x-auto px-4 no-scrollbar sm:mx-0 sm:px-0">
+                <div role="group" aria-label="Filter projects by category" className="flex w-max gap-2 sm:w-auto sm:flex-wrap">
+                  {categories.map((cat) => {
+                    const isActive = activeFilter === cat;
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        aria-pressed={isActive}
+                        onClick={() => setActiveFilter(cat)}
+                        className={`flex min-h-10 items-center gap-2 border px-4 font-mono text-xs uppercase tracking-wider transition-colors duration-150 ${
+                          isActive
+                            ? 'border-primary bg-primary text-primary-foreground'
+                            : 'border-border text-muted-foreground hover:border-primary hover:text-foreground'
+                        }`}
+                      >
+                        {cat}
+                        <span className={`text-[10px] ${isActive ? 'opacity-70' : 'text-primary'}`}>
+                          {countFor(cat)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </Reveal>
+
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+                <AnimatePresence mode="popLayout" initial={false}>
+                  {filteredProjects.map((project) => (
+                    <ProjectCard key={project.id} project={project} />
+                  ))}
+                </AnimatePresence>
+              </div>
+            </div>
+          </section>
+
+          {/* ───────────── Research ───────────── */}
+          <section id="research" className="section border-y border-border bg-card">
+            <div className="container">
+              <SectionHeader index="02" eyebrow="Publications" title="Research" />
+
+              <motion.ol
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, margin: '-80px' }}
+                variants={stagger}
+              >
+                {research.map((paper) => (
+                  <motion.li
+                    key={paper.title}
+                    variants={fadeInUp}
+                    className="group relative grid grid-cols-1 gap-x-8 gap-y-2 border-b border-border py-7 transition-colors duration-200 hover:bg-background/60 md:grid-cols-[7rem_1fr_auto] md:items-baseline md:px-4"
+                  >
+                    <span className="absolute left-0 top-0 hidden h-full w-0.5 origin-top scale-y-0 bg-primary transition-transform duration-300 group-hover:scale-y-100 md:block" />
+                    <span className="font-mono text-sm tabular-nums text-primary md:text-base">
+                      {paper.year}
+                    </span>
+                    <div>
+                      <h3 className="text-xl leading-snug md:text-2xl">{paper.title}</h3>
+                      <p className="mt-2 text-[15px] text-muted-foreground">{paper.venue}</p>
+                    </div>
+                    <span className="w-fit border border-border px-2.5 py-1 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+                      {paper.type}
+                    </span>
+                  </motion.li>
+                ))}
+              </motion.ol>
+            </div>
+          </section>
+
+          {/* ───────────── About ───────────── */}
+          <section id="about" className="section">
+            <div className="container">
+              <SectionHeader
+                index="03"
+                eyebrow="About"
+                title={
+                  <>
                     Building AI that
                     <br />
                     <span className="text-primary">serves humanity</span>
-                  </h2>
-                </motion.div>
+                  </>
+                }
+              />
 
-                <motion.div
-                  variants={fadeInUp}
-                  className="hairline-border border-l-2 border-primary pl-6 mb-12"
-                >
-                  <p className="text-base text-muted-foreground leading-relaxed mb-4">
-                    I'm an AI researcher and engineer passionate about pushing the boundaries of
-                    what's possible with machine learning. My work spans from theoretical research
-                    on transformer architectures to practical applications in healthcare and education.
-                  </p>
-                  <p className="text-base text-muted-foreground leading-relaxed">
-                    When I'm not training models, I enjoy contributing to open-source AI projects,
-                    writing about ML interpretability, and mentoring students interested in AI research.
-                    I believe AI should be developed responsibly, with a focus on safety and accessibility.
-                  </p>
-                </motion.div>
+              <div className="grid grid-cols-1 gap-16 lg:grid-cols-12">
+                <div className="lg:col-span-7">
+                  <Reveal className="mb-14 max-w-2xl space-y-5 text-lg leading-relaxed text-muted-foreground">
+                    <p>
+                      I'm an AI researcher and engineer passionate about pushing the boundaries of
+                      what's possible with machine learning. My work spans from theoretical research
+                      on transformer architectures to practical applications in healthcare and
+                      education.
+                    </p>
+                    <p>
+                      When I'm not training models, I enjoy contributing to open-source AI projects,
+                      writing about ML interpretability, and mentoring students interested in AI
+                      research. I believe AI should be developed responsibly, with a focus on safety
+                      and accessibility.
+                    </p>
+                  </Reveal>
 
-                {/* Skills with animated bars */}
-                <motion.div variants={fadeInUp}>
-                  <h3
-                    className="text-xl font-bold mb-6"
-                    style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-                  >
-                    Technical Skills
-                  </h3>
-                  <div className="space-y-5">
-                    {skills.map((skill, index) => (
-                      <motion.div
-                        key={skill.name}
-                        initial={{ opacity: 0, x: -20 }}
-                        whileInView={{ opacity: 1, x: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: index * 0.1 }}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-3">
-                            <skill.icon className="w-4 h-4 text-primary" />
-                            <span className="text-sm font-medium">{skill.name}</span>
+                  <Reveal>
+                    <h3 className="subheading">Technical Skills</h3>
+                    <ul className="grid grid-cols-1 gap-x-10 gap-y-6 sm:grid-cols-2">
+                      {skills.map((skill, index) => (
+                        <li key={skill.name}>
+                          <div className="mb-2.5 flex items-center justify-between gap-3">
+                            <span className="flex items-center gap-3 text-[15px] font-medium">
+                              <skill.icon className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                              {skill.name}
+                            </span>
+                            <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                              {skill.level}%
+                            </span>
                           </div>
-                          <span className="text-xs text-muted-foreground font-mono">
-                            {skill.level}%
-                          </span>
-                        </div>
-                        <div className="h-1 bg-border overflow-hidden">
-                          <motion.div
-                            initial={{ width: 0 }}
-                            whileInView={{ width: `${skill.level}%` }}
-                            viewport={{ once: true }}
-                            transition={{ duration: 1, delay: 0.2 + index * 0.1, ease: "easeOut" }}
-                            className="h-full bg-primary"
-                          />
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                </motion.div>
-              </div>
-
-              {/* Right column - Timeline */}
-              <div className="lg:col-span-5">
-                <motion.div variants={fadeInUp}>
-                  <h3
-                    className="text-xl font-bold mb-8 flex items-center gap-3"
-                    style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-                  >
-                    <Award className="w-5 h-5 text-primary" />
-                    Journey
-                  </h3>
-                </motion.div>
-
-                <div className="relative">
-                  {/* Timeline line */}
-                  <div className="absolute left-4 top-0 bottom-0 w-px bg-border" />
-
-                  <div className="space-y-8">
-                    {timeline.map((item, index) => (
-                      <motion.div
-                        key={index}
-                        variants={fadeInUp}
-                        className="relative pl-12"
-                      >
-                        {/* Timeline dot */}
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          whileInView={{ scale: 1 }}
-                          viewport={{ once: true }}
-                          transition={{ delay: index * 0.2 }}
-                          className="absolute left-0 top-1 w-8 h-8 bg-background border-2 border-primary flex items-center justify-center"
-                        >
-                          <div className="w-2 h-2 bg-primary" />
-                        </motion.div>
-
-                        <div className="hairline-border border border-border p-5 bg-card hover:border-primary transition-colors duration-150">
-                          <span className="text-xs text-primary font-mono tracking-wider">
-                            {item.year}
-                          </span>
-                          <h4
-                            className="text-lg font-bold mt-2"
-                            style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+                          <div
+                            role="progressbar"
+                            aria-label={skill.name}
+                            aria-valuenow={skill.level}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            className="h-1 overflow-hidden bg-border"
                           >
-                            {item.title}
-                          </h4>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {item.org}
-                          </p>
-                          <p className="text-sm text-muted-foreground mt-3 leading-relaxed">
-                            {item.description}
-                          </p>
-                        </div>
-                      </motion.div>
+                            <motion.div
+                              initial={{ width: 0 }}
+                              whileInView={{ width: `${skill.level}%` }}
+                              viewport={{ once: true }}
+                              transition={{ duration: 1, delay: 0.15 + index * 0.08, ease: EASE }}
+                              className="h-full bg-primary"
+                            />
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </Reveal>
+                </div>
+
+                <div className="lg:col-span-5">
+                  <Reveal>
+                    <h3 className="subheading">Journey</h3>
+                  </Reveal>
+
+                  <motion.ol
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, margin: '-80px' }}
+                    variants={stagger}
+                    className="relative space-y-6 before:absolute before:bottom-2 before:left-[5px] before:top-2 before:w-px before:bg-border"
+                  >
+                    {timeline.map((item, index) => (
+                      <motion.li key={item.title} variants={fadeInUp} className="relative pl-9">
+                        <span
+                          aria-hidden="true"
+                          className={`absolute left-0 top-1.5 h-[11px] w-[11px] border border-primary ${
+                            index === 0 ? 'bg-primary' : 'bg-background'
+                          }`}
+                        />
+                        <p className="font-mono text-xs uppercase tracking-wider text-primary">
+                          {item.year}
+                        </p>
+                        <h4 className="mt-2 text-xl">{item.title}</h4>
+                        <p className="mt-0.5 text-[15px] text-foreground/80">{item.org}</p>
+                        <p className="mt-2 text-[15px] leading-relaxed text-muted-foreground">
+                          {item.description}
+                        </p>
+                      </motion.li>
                     ))}
-                  </div>
+                  </motion.ol>
                 </div>
               </div>
             </div>
-          </motion.div>
-        </div>
-      </section>
+          </section>
 
-      {/* Contact Section */}
-      <section id="contact" className="py-24 bg-card">
-        <div className="container">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-            variants={staggerContainer}
-            className="max-w-4xl"
-          >
-            <motion.div variants={fadeInUp}>
-              <span className="text-primary text-sm tracking-[0.2em] font-mono mb-2 block">
-                CONTACT
-              </span>
-              <h2
-                className="text-4xl md:text-5xl font-bold mb-8"
-                style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-              >
-                Let's build
-                <br />
-                <span className="text-primary">something amazing</span>
-              </h2>
-            </motion.div>
-
-            <motion.div
-              variants={fadeInUp}
-              className="hairline-border border-l-2 border-primary pl-6 mb-12 max-w-2xl"
-            >
-              <p className="text-lg text-muted-foreground leading-relaxed">
-                Interested in collaborating on research, discussing AI projects, or exploring
-                opportunities? I'm always excited to connect with fellow researchers, engineers,
-                and anyone passionate about advancing AI.
-              </p>
-            </motion.div>
-
-            <motion.div
-              variants={fadeInUp}
-              className="grid grid-cols-1 md:grid-cols-3 gap-4"
-            >
-              <motion.a
-                href="mailto:chenoa.nussberger@stanford.edu"
-                whileHover={{ y: -4, borderColor: 'var(--primary)' }}
-                className="hairline-border border border-border p-6 bg-background flex items-start gap-4 group"
-              >
-                <Mail className="w-6 h-6 text-primary mt-1" />
-                <div>
-                  <div className="text-xs text-muted-foreground mb-2 tracking-wider">EMAIL</div>
-                  <div className="text-sm font-mono group-hover:text-primary transition-colors">
-                    chenoa.nussberger
+          {/* ───────────── Contact ───────────── */}
+          <section id="contact" className="section relative overflow-hidden border-t border-border bg-card">
+            <div aria-hidden="true" className="absolute inset-0 bg-dot-pattern contact-mask" />
+            <div className="container relative">
+              <SectionHeader
+                index="04"
+                eyebrow="Contact"
+                title={
+                  <>
+                    Let's build
                     <br />
-                    @stanford.edu
+                    <span className="text-primary">something amazing</span>
+                  </>
+                }
+              />
+
+              <Reveal className="mb-12 max-w-2xl">
+                <p className="text-lg leading-relaxed text-muted-foreground">
+                  Interested in collaborating on research, discussing AI projects, or exploring
+                  opportunities? I'm always excited to connect with fellow researchers, engineers,
+                  and anyone passionate about advancing AI.
+                </p>
+              </Reveal>
+
+              <Reveal className="mb-6 border border-border bg-background">
+                <div className="flex flex-col gap-5 p-6 md:flex-row md:items-center md:justify-between md:p-8">
+                  <div className="min-w-0">
+                    <p className="mb-2 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                      <Mail className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                      Email
+                    </p>
+                    <a
+                      href={`mailto:${profile.email}`}
+                      className="link-underline font-display text-xl font-bold [overflow-wrap:anywhere] transition-colors hover:text-primary sm:text-2xl md:text-3xl"
+                    >
+                      {profile.email}
+                    </a>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap gap-3">
+                    <button type="button" onClick={copyEmail} className="btn btn-outline">
+                      {copied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
+                      {copied ? 'Copied' : 'Copy'}
+                    </button>
+                    <a href={`mailto:${profile.email}`} className="btn btn-primary">
+                      Send email
+                      <ArrowUpRight className="h-4 w-4" />
+                    </a>
                   </div>
                 </div>
-              </motion.a>
+              </Reveal>
 
-              <motion.a
-                href="https://github.com/chenoa-nussberger"
-                target="_blank"
-                rel="noopener noreferrer"
-                whileHover={{ y: -4, borderColor: 'var(--primary)' }}
-                className="hairline-border border border-border p-6 bg-background flex items-start gap-4 group"
-              >
-                <Github className="w-6 h-6 text-primary mt-1" />
-                <div>
-                  <div className="text-xs text-muted-foreground mb-2 tracking-wider">GITHUB</div>
-                  <div className="text-sm font-mono group-hover:text-primary transition-colors">
-                    @chenoa-nussberger
-                  </div>
-                </div>
-              </motion.a>
+              <Reveal className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                {[
+                  { label: 'GitHub', icon: Github, ...profile.github },
+                  { label: 'LinkedIn', icon: Linkedin, ...profile.linkedin },
+                ].map((link) => (
+                  <a
+                    key={link.label}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group flex items-center gap-4 border border-border bg-background p-6 transition-colors duration-200 hover:border-primary/70"
+                  >
+                    <link.icon className="h-6 w-6 shrink-0 text-primary" aria-hidden="true" />
+                    <div className="min-w-0">
+                      <div className="mb-1 font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                        {link.label}
+                      </div>
+                      <div className="truncate font-mono text-sm transition-colors group-hover:text-primary">
+                        {link.handle}
+                      </div>
+                    </div>
+                    <ArrowUpRight
+                      className="ml-auto h-5 w-5 shrink-0 text-muted-foreground transition-all duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary"
+                      aria-hidden="true"
+                    />
+                  </a>
+                ))}
+              </Reveal>
+            </div>
+          </section>
+        </main>
 
-              <motion.a
-                href="https://linkedin.com/in/chenoa-nussberger"
-                target="_blank"
-                rel="noopener noreferrer"
-                whileHover={{ y: -4, borderColor: 'var(--primary)' }}
-                className="hairline-border border border-border p-6 bg-background flex items-start gap-4 group"
-              >
-                <Linkedin className="w-6 h-6 text-primary mt-1" />
-                <div>
-                  <div className="text-xs text-muted-foreground mb-2 tracking-wider">LINKEDIN</div>
-                  <div className="text-sm font-mono group-hover:text-primary transition-colors">
-                    /in/chenoa-nussberger
-                  </div>
-                </div>
-              </motion.a>
-            </motion.div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="hairline-border border-t border-border py-8">
-        <div className="container">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              className="text-sm text-muted-foreground"
-            >
-              © 2026 Chenoa Nussberger. Crafted with precision.
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              className="flex items-center gap-6"
-            >
-              <a href="https://github.com/chenoa-nussberger" className="text-muted-foreground hover:text-primary transition-colors">
-                <Github className="w-5 h-5" />
+        {/* ───────────── Footer ───────────── */}
+        <footer className="border-t border-border py-8">
+          <div className="container flex flex-col items-center justify-between gap-5 md:flex-row">
+            <p className="text-sm text-muted-foreground">
+              © {new Date().getFullYear()} {profile.firstName} {profile.lastName}. Crafted with precision.
+            </p>
+            <div className="flex items-center gap-1">
+              <a href={profile.github.url} target="_blank" rel="noopener noreferrer" aria-label="GitHub" className="icon-link">
+                <Github className="h-5 w-5" />
               </a>
-              <a href="https://linkedin.com/in/chenoa-nussberger" className="text-muted-foreground hover:text-primary transition-colors">
-                <Linkedin className="w-5 h-5" />
+              <a href={profile.linkedin.url} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className="icon-link">
+                <Linkedin className="h-5 w-5" />
               </a>
-              <a href="mailto:chenoa.nussberger@stanford.edu" className="text-muted-foreground hover:text-primary transition-colors">
-                <Mail className="w-5 h-5" />
+              <a href={`mailto:${profile.email}`} aria-label="Email" className="icon-link">
+                <Mail className="h-5 w-5" />
               </a>
-            </motion.div>
+              <span className="mx-3 h-5 w-px bg-border" aria-hidden="true" />
+              <a href="#top" className="card-link">
+                Top
+                <ArrowUp className="h-4 w-4" aria-hidden="true" />
+              </a>
+            </div>
           </div>
-        </div>
-      </footer>
-    </div>
+        </footer>
+      </div>
+    </MotionConfig>
   );
 }
